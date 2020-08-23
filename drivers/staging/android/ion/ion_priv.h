@@ -34,6 +34,7 @@
 #include <asm/cacheflush.h>
 #endif
 #include <linux/device.h>
+#include <linux/msm_dma_iommu_mapping.h>
 
 #include "ion.h"
 
@@ -110,6 +111,7 @@ struct ion_buffer {
 	/* used to track orphaned buffers */
 	int handle_count;
 	char task_comm[TASK_COMM_LEN];
+        struct msm_iommu_data iommu_data;
 	pid_t pid;
 };
 void ion_buffer_destroy(struct ion_buffer *buffer);
