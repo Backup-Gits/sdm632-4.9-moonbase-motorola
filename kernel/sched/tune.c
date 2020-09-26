@@ -346,7 +346,11 @@ static inline void init_sched_boost(struct schedtune *st)
 
 void update_cgroup_boost_settings(void)
 {
-	int i;
+	return task_schedtune(tsk1) == task_schedtune(tsk2);
+}
+
+void update_cgroup_boost_settings(void) {
+  int i;
 
 	for (i = 0; i < BOOSTGROUPS_COUNT; i++) {
 		if (!allocated_group[i])
