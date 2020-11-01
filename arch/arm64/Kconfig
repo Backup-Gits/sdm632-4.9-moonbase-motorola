@@ -628,6 +628,20 @@ config NR_CPUS
 	# These have to remain sorted largest to smallest
 	default "64"
 
+config LITTLE_CPU_MASK
+	int "Bitmask of available LITTLE CPUs"
+	help
+	  This is a bitmask specifying which of the CPUs are LITTLE in a
+	  heterogeneous system. Use 0 if you are unsure, which just results in
+	  this storing the bitmask of all available CPUs.
+
+config BIG_CPU_MASK
+	int "Bitmask of available big CPUs"
+	help
+	  This is a bitmask specifying which of the CPUs are big in a
+	  heterogeneous system. Use 0 if you are unsure, which just results in
+	  this storing the bitmask of all available CPUs.
+
 config HOTPLUG_CPU
 	bool "Support for hot-pluggable CPUs"
 	select GENERIC_IRQ_MIGRATION
@@ -1265,8 +1279,14 @@ config SYSVIPC_COMPAT
 	depends on COMPAT && SYSVIPC
 
 config COMPAT_VDSO
- 	bool "32-bit vDSO"
- 	depends on COMPAT
+	bool "32-bit vDSO"
+	depends on COMPAT
+
+config CROSS_COMPILE_ARM32
+        string "32-bit toolchain prefix"
+        help
+          Same as setting CROSS_COMPILE_ARM32 in the environment, but saved for
+          future builds. The environment variable overrides this config option.
 
 config KEYS_COMPAT
 	def_bool y
@@ -1288,12 +1308,6 @@ config ARCH_HIBERNATION_HEADER
 
 config ARCH_SUSPEND_POSSIBLE
 	def_bool y
-
-config CROSS_COMPILE_ARM32
-	string "32-bit toolchain prefix"
-	help
-	  Same as setting CROSS_COMPILE_ARM32 in the environment, but saved for
-	  future builds. The environment variable overrides this config option.
 
 endmenu
 
