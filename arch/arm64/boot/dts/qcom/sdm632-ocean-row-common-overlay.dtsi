@@ -1,5 +1,9 @@
+<<<<<<< HEAD:arch/arm64/boot/dts/qcom/sdm632-ocean-row-common-overlay.dtsi
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+=======
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+>>>>>>> a4a436c4de3b69a63ff5276e10a1348a58482e64:arch/arm/boot/dts/qcom/sa415m-cdp.dtsi
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,3 +15,12 @@
  * GNU General Public License for more details.
  */
 
+<<<<<<< HEAD:arch/arm64/boot/dts/qcom/sdm632-ocean-row-common-overlay.dtsi
+=======
+#include "sdxpoorwills-cdp.dtsi"
+
+&qcom_seecom {
+	status = "okay";
+};
+
+>>>>>>> a4a436c4de3b69a63ff5276e10a1348a58482e64:arch/arm/boot/dts/qcom/sa415m-cdp.dtsi

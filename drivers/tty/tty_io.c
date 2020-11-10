@@ -134,7 +134,6 @@ EXPORT_SYMBOL(tty_std_termios);
    into this file */
 
 LIST_HEAD(tty_drivers);			/* linked list of tty drivers */
-EXPORT_SYMBOL(tty_drivers);
 
 /* Mutex to protect creating and releasing a tty */
 DEFINE_MUTEX(tty_mutex);
@@ -154,6 +153,7 @@ static long tty_compat_ioctl(struct file *file, unsigned int cmd,
 #endif
 static int __tty_fasync(int fd, struct file *filp, int on);
 static int tty_fasync(int fd, struct file *filp, int on);
+static void release_tty(struct tty_struct *tty, int idx);
 
 /**
  *	free_tty_struct		-	free a disused tty
@@ -1601,7 +1601,6 @@ err_release_lock:
 	release_tty(tty, idx);
 	return ERR_PTR(retval);
 }
-EXPORT_SYMBOL(tty_init_dev);
 
 static void tty_free_termios(struct tty_struct *tty)
 {
@@ -1718,7 +1717,7 @@ EXPORT_SYMBOL(tty_kref_put);
  *	of ttys that the driver keeps.
  *
  */
-void release_tty(struct tty_struct *tty, int idx)
+static void release_tty(struct tty_struct *tty, int idx)
 {
 	/* This should always be true but check for the moment */
 	WARN_ON(tty->index != idx);
@@ -1737,7 +1736,6 @@ void release_tty(struct tty_struct *tty, int idx)
 	tty_kref_put(tty->link);
 	tty_kref_put(tty);
 }
-EXPORT_SYMBOL(release_tty);
 
 /**
  *	tty_release_checks - check a tty before real release

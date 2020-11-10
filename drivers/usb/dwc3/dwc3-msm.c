@@ -47,6 +47,7 @@
 #include <linux/extcon.h>
 #include <linux/reset.h>
 #include <linux/clk/qcom.h>
+#include <soc/qcom/boot_stats.h>
 
 #include "power.h"
 #include "core.h"
@@ -54,6 +55,13 @@
 #include "dbm.h"
 #include "debug.h"
 #include "xhci.h"
+#ifdef CONFIG_TUSB1064_XR_MISC
+#include "../../misc/tusb1064.h"
+#endif
+#ifdef CONFIG_VXR200_XR_MISC
+#include "../../misc/vxr7200.h"
+#endif
+
 
 #define SDP_CONNETION_CHECK_TIME 10000 /* in ms */
 
@@ -76,22 +84,12 @@ static unsigned int dwc3_gadget_imod_val;
 module_param(dwc3_gadget_imod_val, int, 0644);
 MODULE_PARM_DESC(dwc3_gadget_imod_val,
 			"Interrupt moderation in usecs for normal EPs");
-/* pm qos latency */
-static int qos_latency;
-module_param(qos_latency, int, S_IRUGO|S_IWUSR);
-MODULE_PARM_DESC(qos_latency, "latency constraint when USB connected");
 
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_HCCPARAMS2		(0x1c)
 #define HCC_CTC(p)		((p) & (1 << 3))
-#define USB3_USBCMD             (0x20)
 #define USB3_PORTSC		(0x420)
-
-#define USBCMD_HCRST		BIT(1)
-#define PORTSC_PP		BIT(9)
-#define HSTPRTCMPL		BIT(30)
-
 
 /**
  *  USB QSCRATCH Hardware registers
@@ -329,8 +327,6 @@ struct dwc3_msm {
 	struct delayed_work sdp_check;
 	bool usb_compliance_mode;
 	struct mutex suspend_resume_mutex;
-	bool ss_compliance;
-	int host_id_state; //IKSWQ-34206, add host_id_state
 
 	enum usb_device_speed override_usb_speed;
 
@@ -468,68 +464,6 @@ static bool dwc3_msm_is_host_superspeed(struct dwc3_msm *mdwc)
 
 	return false;
 }
-
-static ssize_t ss_compliance_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	unsigned long r;
-	unsigned long mode;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	int i, num_ports;
-	u32 reg;
-
-	reg = dwc3_msm_read_reg(mdwc->base, USB3_HCSPARAMS1);
-	num_ports = HCS_MAX_PORTS(reg);
-
-	r = kstrtoul(buf, 0, &mode);
-	if (r) {
-		pr_err("Invalid value = %lu\n", mode);
-		return -EINVAL;
-	}
-
-	/* Handle the mode change if it is valid */
-	if (mode) {
-		dwc3_msm_write_reg_field(mdwc->base,
-				USB3_USBCMD, USBCMD_HCRST, USBCMD_HCRST);
-		for (i = 0; i < num_ports; i++) {
-			dwc3_msm_write_reg_field(mdwc->base,
-			USB3_PORTSC + i*0x10, PORTSC_PP, 0x0);
-		}
-		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg|HSTPRTCMPL);
-	} else {
-		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg&(~HSTPRTCMPL));
-		dwc3_msm_write_reg_field(mdwc->base,
-				USB3_USBCMD, USBCMD_HCRST, USBCMD_HCRST);
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR(enable_ss_compliance, 0220,
-			NULL,
-			ss_compliance_store);
-
-static ssize_t toggle_pattern_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	u32 reg;
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg&(~HSTPRTCMPL));
-	mdelay(2);
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg|HSTPRTCMPL);
-	return count;
-}
-
-static DEVICE_ATTR(toggle_pattern, 0220,
-			NULL,
-			toggle_pattern_store);
 
 static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 {
@@ -2087,7 +2021,6 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
 }
 
-#define MAX_ERR_CNT 50
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 							unsigned int value)
 {
@@ -2098,11 +2031,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
-		/* Avoid a flood of Error events */
-		if ((dwc->err_cnt++ >= MAX_ERR_CNT) &&
-		    (dwc->err_cnt % MAX_ERR_CNT))
-			break;
-
 		dev_info(mdwc->dev,
 			"DWC3_CONTROLLER_ERROR_EVENT received, irq cnt %lu\n",
 			dwc->irq_cnt);
@@ -3036,9 +2964,17 @@ static void dwc3_resume_work(struct work_struct *w)
 				EXTCON_PROP_USB_TYPEC_POLARITY, &val);
 		if (ret)
 			mdwc->typec_orientation = ORIENTATION_NONE;
-		else
+		else {
 			mdwc->typec_orientation = val.intval ?
 					ORIENTATION_CC2 : ORIENTATION_CC1;
+#ifdef CONFIG_TUSB1064_XR_MISC
+			tusb1064_usb_event(val.intval ? true : false);
+#endif
+#ifdef CONFIG_VXR200_XR_MISC
+			vxr7200_usb_event(true);
+#endif
+
+		}
 
 		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
@@ -3150,6 +3086,12 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 
 	dwc->t_pwr_evt_irq = ktime_get();
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
+
+	if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+		place_marker("M - USB device resume started");
+	}
+
 	/*
 	 * When in Low Power Mode, can't read PWR_EVNT_IRQ_STAT_REG to acertain
 	 * which interrupts have been triggered, as the clocks are disabled.
@@ -3307,9 +3249,6 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
 		dbg_event(0xFF, "id_state", mdwc->id_state);
-
-		//IKSWQ-34206, update host_id_state
-                mdwc->host_id_state = mdwc->id_state == DWC3_ID_GROUND ? 0 : 1;
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
 
@@ -3349,9 +3288,6 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	/* Reset the Controller Error Count for Vbus change */
-	dwc->err_cnt = 0;
 
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
@@ -3579,15 +3515,12 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
 	if (sysfs_streq(buf, "peripheral")) {
 		mdwc->vbus_active = true;
 		mdwc->id_state = DWC3_ID_FLOAT;
-		mdwc->host_id_state = 1; //IKSWQ-34206
 	} else if (sysfs_streq(buf, "host")) {
 		mdwc->vbus_active = false;
 		mdwc->id_state = DWC3_ID_GROUND;
-		mdwc->host_id_state = 0; //IKSWQ-34206
 	} else {
 		mdwc->vbus_active = false;
 		mdwc->id_state = DWC3_ID_FLOAT;
-		mdwc->host_id_state = 1; //IKSWQ-34206
 	}
 
 	dwc3_ext_event_notify(mdwc);
@@ -3670,29 +3603,6 @@ static ssize_t usb_compliance_mode_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(usb_compliance_mode);
 
-//IKSWQ-34206, add /sys/devices/platform/soc/7000000.ssusb/host_id_state for tcmd, start
-static ssize_t host_id_state_show(struct device *dev,
-                struct device_attribute *attr, char *buf)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", mdwc->host_id_state);
-}
-static ssize_t host_id_state_store(struct device *dev,
-                struct device_attribute *attr, const char *buf, size_t count)
-{
-	int ret = 0;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-
-	if (sysfs_streq(buf, "0") || sysfs_streq(buf, "1")) {
-		ret = kstrtoint(buf, 0, &mdwc->host_id_state);
-	}
-	if (ret)
-		return ret;
-	return count;
-}
-static DEVICE_ATTR_RW(host_id_state);
-//IKSWQ-34206, end
 
 static ssize_t xhci_link_compliance_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -3767,13 +3677,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mdwc->id_state = DWC3_ID_FLOAT;
-	mdwc->host_id_state = 1; //IKSWQ-43206
 	set_bit(ID, &mdwc->inputs);
 
 	mdwc->charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
-	mdwc->ss_compliance = of_property_read_bool(node,
-				"qcom,ssusb-compliance");
 
 	ret = of_property_read_u32(node, "qcom,lpm-to-suspend-delay-ms",
 				&mdwc->lpm_to_suspend_delay);
@@ -4095,15 +4002,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
-	//IKSWQ-34206, create host_id_state file, start
-	mdwc->host_id_state = mdwc->id_state == DWC3_ID_GROUND ? 0 : 1;
-	device_create_file(&pdev->dev, &dev_attr_host_id_state);
-	//IKSWQ-34206, end
-
-	if (mdwc->ss_compliance) {
-		device_create_file(&pdev->dev, &dev_attr_enable_ss_compliance);
-		device_create_file(&pdev->dev, &dev_attr_toggle_pattern);
-	}
 	return 0;
 
 put_psy:
@@ -4136,7 +4034,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	device_remove_file(&pdev->dev, &dev_attr_mode);
 	device_remove_file(&pdev->dev, &dev_attr_xhci_link_compliance);
-	device_remove_file(&pdev->dev, &dev_attr_host_id_state); //IKSWQ-34206
 	if (mdwc->usb_psy)
 		power_supply_put(mdwc->usb_psy);
 
@@ -4169,10 +4066,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	if (mdwc->hs_phy)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 	platform_device_put(mdwc->dwc3);
-	if (mdwc->ss_compliance) {
-		device_remove_file(&pdev->dev, &dev_attr_enable_ss_compliance);
-		device_remove_file(&pdev->dev, &dev_attr_toggle_pattern);
-	}
 	of_platform_depopulate(&pdev->dev);
 
 	pm_runtime_disable(mdwc->dev);
@@ -4294,9 +4187,6 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 	static bool curr_perf_mode;
 	int latency = mdwc->pm_qos_latency;
 
-	if (qos_latency)
-		latency = qos_latency;
-
 	if ((curr_perf_mode == perf_mode) || !latency)
 		return;
 
@@ -4321,9 +4211,6 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 
 	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
-
-	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
 
 	last_irq_cnt = dwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
@@ -4785,6 +4672,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		} else {
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
 			dev_dbg(mdwc->dev, "Cable disconnected\n");
+#ifdef CONFIG_VXR200_XR_MISC
+			vxr7200_usb_event(false);
+#endif
+
 		}
 		break;
 
@@ -4966,6 +4857,12 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	/* flush to avoid race in read/write of pm_suspended */
 	flush_workqueue(mdwc->dwc3_wq);
 	atomic_set(&mdwc->pm_suspended, 0);
+
+	if (atomic_read(&dwc->in_lpm) &&
+			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		dev_info(mdwc->dev, "USB Resume start\n");
+		place_marker("M - USB device resume started");
+	}
 
 	/* kick in otg state machine */
 	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);

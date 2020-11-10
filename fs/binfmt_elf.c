@@ -39,9 +39,6 @@
 #include <asm/uaccess.h>
 #include <asm/param.h>
 #include <asm/page.h>
-#ifdef CONFIG_COREDUMP_GZ
-#include "coredump_gz.h"
-#endif
 
 #ifndef user_long_t
 #define user_long_t long
@@ -1103,6 +1100,18 @@ static int load_elf_binary(struct linux_binprm *bprm)
 	current->mm->start_stack = bprm->p;
 
 	if ((current->flags & PF_RANDOMIZE) && (randomize_va_space > 1)) {
+		/*
+		 * For architectures with ELF randomization, when executing
+		 * a loader directly (i.e. no interpreter listed in ELF
+		 * headers), move the brk area out of the mmap region
+		 * (since it grows up, and may collide early with the stack
+		 * growing down), and into the unused ELF_ET_DYN_BASE region.
+		 */
+		if (IS_ENABLED(CONFIG_ARCH_HAS_ELF_RANDOMIZE) &&
+		    loc->elf_ex.e_type == ET_DYN && !interpreter)
+			current->mm->brk = current->mm->start_brk =
+				ELF_ET_DYN_BASE;
+
 		current->mm->brk = current->mm->start_brk =
 			arch_randomize_brk(current->mm);
 #ifdef compat_brk_randomized
@@ -1712,7 +1721,7 @@ static int fill_thread_core_info(struct elf_thread_core_info *t,
 		    (!regset->active || regset->active(t->task, regset) > 0)) {
 			int ret;
 			size_t size = regset->n * regset->size;
-			void *data = kmalloc(size, GFP_KERNEL);
+			void *data = kzalloc(size, GFP_KERNEL);
 			if (unlikely(!data))
 				return 0;
 			ret = regset->get(t->task, regset,
@@ -2182,7 +2191,6 @@ static int elf_core_dump(struct coredump_params *cprm)
 	Elf_Half e_phnum;
 	elf_addr_t e_shoff;
 	elf_addr_t *vma_filesz = NULL;
-	int page_padding_num;
 
 	/*
 	 * We no longer stop all VM operations.
@@ -2230,9 +2238,6 @@ static int elf_core_dump(struct coredump_params *cprm)
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
-
-	if (!dump_init(cprm))
-		goto end_coredump;
 
 	offset += sizeof(*elf);				/* Elf header */
 	offset += segs * sizeof(struct elf_phdr);	/* Program headers */
@@ -2319,13 +2324,7 @@ static int elf_core_dump(struct coredump_params *cprm)
 		goto end_coredump;
 
 	/* Align to page */
-	page_padding_num = dataoff - cprm->pos;
-#ifdef CONFIG_COREDUMP_GZ
-	/* For compressing in kernel, re-write the padding zero nums */
-	if (dump_compressed(cprm))
-		page_padding_num = dataoff - cprm->zstr.total_in;
-#endif
-	if (!dump_skip(cprm, page_padding_num))
+	if (!dump_skip(cprm, dataoff - cprm->pos))
 		goto end_coredump;
 
 	for (i = 0, vma = first_vma(current, gate_vma); vma != NULL;
@@ -2362,7 +2361,6 @@ static int elf_core_dump(struct coredump_params *cprm)
 	}
 
 end_coredump:
-	dump_finish(cprm);
 	set_fs(fs);
 
 cleanup:

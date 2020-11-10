@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #endif
 #include <linux/fb.h>
+#include <stdbool.h>
 
 #define MSMFB_IOCTL_MAGIC 'm'
 #define MSMFB_GRP_DISP          _IOW(MSMFB_IOCTL_MAGIC, 1, unsigned int)
@@ -74,8 +75,6 @@
 #define MSMFB_LPM_ENABLE	_IOWR(MSMFB_IOCTL_MAGIC, 170, unsigned int)
 #define MSMFB_MDP_PP_GET_FEATURE_VERSION _IOWR(MSMFB_IOCTL_MAGIC, 171, \
 					      struct mdp_pp_feature_version)
-#define MSMFB_REG_READ   _IOWR(MSMFB_IOCTL_MAGIC, 64, struct msmfb_reg_access)
-#define MSMFB_REG_WRITE  _IOW(MSMFB_IOCTL_MAGIC, 65, struct msmfb_reg_access)
 
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
@@ -1277,6 +1276,8 @@ enum {
 	metadata_op_get_caps,
 	metadata_op_crc,
 	metadata_op_get_ion_fd,
+	metadata_op_secure_bl_set,
+	metadata_op_secure_reg,
 	metadata_op_max
 };
 
@@ -1311,6 +1312,8 @@ struct msmfb_metadata {
 		struct mdss_hw_caps caps;
 		uint8_t secure_en;
 		int fbmem_ionfd;
+		bool sec_bl_update_en;
+		bool sec_reg_on;
 	} data;
 };
 
@@ -1387,13 +1390,6 @@ struct msmfb_mixer_info_req {
 	int mixer_num;
 	int cnt;
 	struct mdp_mixer_info info[MAX_PIPE_PER_MIXER];
-};
-
-struct msmfb_reg_access {
-	uint8_t address;
-	uint8_t use_hs_mode;
-	uint32_t buffer_size;
-	uint8_t *buffer;
 };
 
 enum {

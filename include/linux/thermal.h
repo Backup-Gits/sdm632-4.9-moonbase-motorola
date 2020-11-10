@@ -240,7 +240,6 @@ struct thermal_zone_device {
 	int passive_delay;
 	int polling_delay;
 	int temperature;
-	int alarm_temperature;
 	int last_temperature;
 	int emul_temperature;
 	int passive;

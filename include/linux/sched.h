@@ -894,10 +894,6 @@ struct signal_struct {
 	struct mm_struct *oom_mm;	/* recorded mm when the thread group got
 					 * killed by the oom killer */
 
-#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
-	struct rb_node adj_node;
-#endif
-
 	struct mutex cred_guard_mutex;	/* guard against foreign influences on
 					 * credential calculations
 					 * (notably. ptrace) */
@@ -1946,8 +1942,8 @@ struct task_struct {
 	struct seccomp seccomp;
 
 /* Thread group tracking */
-   	u32 parent_exec_id;
-   	u32 self_exec_id;
+	u64 parent_exec_id;
+	u64 self_exec_id;
 /* Protection of (de-)allocation: mm, files, fs, tty, keyrings, mems_allowed,
  * mempolicy */
 	spinlock_t alloc_lock;
@@ -2309,11 +2305,6 @@ static inline struct pid *task_tgid(struct task_struct *task)
 {
 	return task->group_leader->pids[PIDTYPE_PID].pid;
 }
-
-#ifdef CONFIG_ANDROID_LMK_ADJ_RBTREE
-extern void add_2_adj_tree(struct task_struct *task);
-extern void delete_from_adj_tree(struct task_struct *task);
-#endif
 
 /*
  * Without tasklist or rcu lock it is not safe to dereference

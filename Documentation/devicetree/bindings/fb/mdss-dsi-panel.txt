@@ -521,6 +521,7 @@ the fps window.
 					in floating state(not LP00 or LP11) to turn on this property. Software
 					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
 					idle screen (footswitch control off) when this property is enabled.
+- qcom,skip-panel-reset:		Boolean. when set, will skip panel reset during panel ON/OFF.
 [[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
 					Default configuration can be chosen by specifying phandle of the
 					selected subnode in the qcom,config-select.
@@ -575,14 +576,6 @@ Optional properites:
 					Each child represents timings settings for a specific resolution.
 - qcom,mdss-dsi-post-init-delay:        Specifies required number of frames to wait so that panel can be functional
 					to show proper display.
-- qcom,mdss-panel-off-rst-disable:	Don't pull down reset pin when panel off.
-- qcom,mdss-panel-on-tp-rst-enable:	Enable tp reset when panel on.
-- qcom,mdss-dsi-tp-rst-post-ms:		Set the tp reset sleep time.
-- qcom,mdss-dsi-tp-rst-gpio:		Set the tp reset gpio.
-- qcom,mdss-panel-pull-high:		Pull higt reset pin before mdss_dsi_on
-- qcom,mdss-panel-reg-read-lp-enable:	Use dsi_lp_mode when read reg.
-- qcom,mdss-dsi-panel-reply-long-response: A boolean value to enable/disable long packet response of short read for
-					the panel. Short read means 1byte and 2bytes read.
 
 Additional properties added to the second level nodes that represent timings properties:
 - qcom,mdss-dsi-timing-default:		Property that specifies the current child as the default

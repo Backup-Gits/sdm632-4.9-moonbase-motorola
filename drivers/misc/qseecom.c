@@ -1720,8 +1720,8 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 
 	if ((req.ifd_data_fd <= 0) || (req.virt_sb_base == NULL) ||
 					(req.sb_len == 0)) {
-		pr_err("Inavlid input(s)ion_fd(%d), sb_len(%d), vaddr(0x%pK)\n",
-			req.ifd_data_fd, req.sb_len, req.virt_sb_base);
+		pr_err("Invalid input(s)ion_fd(%d), sb_len(%d)\n",
+			req.ifd_data_fd, req.sb_len);
 		return -EFAULT;
 	}
 	if (!access_ok(VERIFY_WRITE, (void __user *)req.virt_sb_base,
@@ -2797,11 +2797,6 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 
 	if (!memcmp(data->client.app_name, "keymaste", strlen("keymaste"))) {
 		pr_debug("Do not unload keymaster app from tz\n");
-		goto unload_exit;
-	}
-
-	if (!memcmp(data->client.app_name, "prov", strlen("prov"))) {
-		pr_debug("Do not unload prov app from tz\n");
 		goto unload_exit;
 	}
 
@@ -6841,11 +6836,9 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 				pr_err("Ion client can't retrieve the handle\n");
 				return -ENOMEM;
 			}
-			if ((req->req_len <
-				sizeof(struct qseecom_param_memref)) ||
+			if ((req->req_len < sizeof(uint32_t)) ||
 				(req->ifd_data[i].cmd_buf_offset >
-				req->req_len -
-				sizeof(struct qseecom_param_memref))) {
+				req->req_len - sizeof(uint32_t))) {
 				pr_err("Invalid offset/req len 0x%x/0x%x\n",
 					req->req_len,
 					req->ifd_data[i].cmd_buf_offset);

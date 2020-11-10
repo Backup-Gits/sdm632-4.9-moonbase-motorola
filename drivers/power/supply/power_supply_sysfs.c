@@ -60,7 +60,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 		"Unspecified failure", "Cold", "Watchdog timer expire",
 		"Safety timer expire",
-		"Warm", "Cool", "Hot", "Slightly cool"
+		"Warm", "Cool", "Hot"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -82,9 +82,6 @@ static ssize_t power_supply_show_property(struct device *dev,
 	};
 	static const char * const typec_pr_text[] = {
 		"none", "dual power role", "sink", "source"
-	};
-	static char *charge_rate[] = {
-		"None", "Normal", "Weak", "Turbo"
 	};
 	ssize_t ret = 0;
 	struct power_supply *psy = dev_get_drvdata(dev);
@@ -114,9 +111,6 @@ static ssize_t power_supply_show_property(struct device *dev,
 	else if (off == POWER_SUPPLY_PROP_CHARGE_TYPE)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				charge_type[value.intval]);
-	else if (off == POWER_SUPPLY_PROP_CHARGE_RATE)
-		return snprintf(buf, strlen(charge_rate[value.intval]) + 2,
-				"%s\n", charge_rate[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_HEALTH)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				health_text[value.intval]);
@@ -213,7 +207,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_now_raw),
 	POWER_SUPPLY_ATTR(charge_now_error),
 	POWER_SUPPLY_ATTR(charge_avg),
-	POWER_SUPPLY_ATTR(charge_rate),
 	POWER_SUPPLY_ATTR(charge_counter),
 	POWER_SUPPLY_ATTR(constant_charge_current),
 	POWER_SUPPLY_ATTR(constant_charge_current_max),
@@ -241,7 +234,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp_ambient),
 	POWER_SUPPLY_ATTR(temp_ambient_alert_min),
 	POWER_SUPPLY_ATTR(temp_ambient_alert_max),
-	POWER_SUPPLY_ATTR(temp_hotspot),
 	POWER_SUPPLY_ATTR(time_to_empty_now),
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
 	POWER_SUPPLY_ATTR(time_to_full_now),
@@ -273,7 +265,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp_cold),
 	POWER_SUPPLY_ATTR(temp_hot),
 	POWER_SUPPLY_ATTR(system_temp_level),
-	POWER_SUPPLY_ATTR(num_system_temp_levels),
 	POWER_SUPPLY_ATTR(resistance),
 	POWER_SUPPLY_ATTR(resistance_capacitive),
 	POWER_SUPPLY_ATTR(resistance_id),
@@ -353,7 +344,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(cc_soc),
 	POWER_SUPPLY_ATTR(qg_vbms_mode),
 	POWER_SUPPLY_ATTR(real_capacity),
-	POWER_SUPPLY_ATTR(age),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	/* Properties of type `const char *' */
@@ -444,12 +434,8 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 	}
 
 	ret = add_uevent_var(env, "POWER_SUPPLY_NAME=%s", psy->desc->name);
-
-	if (ret) {
-		dev_err(dev, "failed to add POWER_SUPPLY_NAME=%s\n",
-							psy->desc->name);
+	if (ret)
 		return ret;
-	}
 
 	prop_buf = (char *)get_zeroed_page(GFP_KERNEL);
 	if (!prop_buf)
@@ -484,11 +470,8 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 		ret = add_uevent_var(env, "POWER_SUPPLY_%s=%s", attrname, prop_buf);
 		kfree(attrname);
-		if (ret) {
-			dev_err(dev, "failed to add POWER_SUPPLY_%s=%s\n",
-							attrname, prop_buf);
+		if (ret)
 			goto out;
-                }
 	}
 
 out:

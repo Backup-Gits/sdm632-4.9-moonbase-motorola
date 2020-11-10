@@ -40,6 +40,11 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+			};
+
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -47,7 +52,7 @@
 					dev = "/dev/block/platform/soc/7824900.sdhci/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait";
+					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
 
@@ -138,8 +143,6 @@
 			alloc-ranges = <0x0 0xc0100000 0x0 0x08200000>;
 			alignment = <0 0x400000>;
 			size = <0 0x800000>;
-			#reg = <0x0 0xc0100000 0x0 0x08200000>;
-			#label = "adsp_shmem_device_mem";
 		};
 
 		gpu_mem: gpu_region@0 {
@@ -153,7 +156,7 @@
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x400000>;
+			size = <0x400000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */

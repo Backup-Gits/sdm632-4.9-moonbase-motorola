@@ -168,7 +168,6 @@ void log_suspend_abort_reason(const char *fmt, ...)
 static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		unsigned long pm_event, void *unused)
 {
-	struct timespec sleep_time;
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		spin_lock(&resume_reason_lock);
@@ -185,16 +184,6 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		curr_monotime = ktime_get();
 		/* monotonic time since boot including the time spent in suspend */
 		curr_stime = ktime_get_boottime();
-
-		/*
-		 * This includes the time for suspend/resume, but we can
-		 * approximate it to sleep time.
-		 */
-		sleep_time = ktime_to_timespec(ktime_sub(curr_stime, last_stime));
-
-		pr_info("Suspended for %lu.%03lu seconds\n", sleep_time.tv_sec,
-			sleep_time.tv_nsec / NSEC_PER_MSEC);
-
 		break;
 	default:
 		break;

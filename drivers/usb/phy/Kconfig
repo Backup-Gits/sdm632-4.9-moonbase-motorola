@@ -27,7 +27,7 @@ config AB8500_USB
 	  in host mode, low speed.
 
 config FSL_USB2_OTG
-	bool "Freescale USB OTG Transceiver Driver"
+	tristate "Freescale USB OTG Transceiver Driver"
 	depends on USB_EHCI_FSL && USB_FSL_USB2 && USB_OTG_FSM=y && PM
 	depends on USB_GADGET || !USB_GADGET # if USB_GADGET=m, this can't be 'y'
 	select USB_PHY
@@ -265,12 +265,4 @@ config USB_MSM_OTG
 	  required after resetting the hardware and power management.
 	  This driver is required even for peripheral only or host only
 	  mode configurations.
-
-config USB_PHY_TUNE_FACTORY_OVERRIDE
-	bool "USB phy tune override for factory"
-	depends on USB_PHY
-	default n
-	help
-	  Select use USB phy tune override parameters for factory.
-
 endmenu

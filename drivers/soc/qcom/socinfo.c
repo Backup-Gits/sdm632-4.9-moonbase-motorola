@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@ enum {
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
 	HW_PLATFORM_ADP = 25,
+	HW_PLATFORM_TTP = 30,
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_INVALID
 };
@@ -89,6 +90,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
 	[HW_PLATFORM_ADP] = "ADP",
+	[HW_PLATFORM_TTP] = "TTP",
 	[HW_PLATFORM_HDK] = "HDK",
 };
 
@@ -682,7 +684,6 @@ uint32_t socinfo_get_version(void)
 {
 	return (socinfo) ? socinfo->v0_1.version : 0;
 }
-EXPORT_SYMBOL(socinfo_get_version);
 
 char *socinfo_get_build_id(void)
 {
@@ -769,7 +770,6 @@ uint32_t socinfo_get_raw_id(void)
 			socinfo->v0_2.raw_id : 0)
 		: 0;
 }
-EXPORT_SYMBOL_GPL(socinfo_get_raw_id);
 
 uint32_t socinfo_get_raw_version(void)
 {
@@ -778,7 +778,6 @@ uint32_t socinfo_get_raw_version(void)
 			socinfo->v0_2.raw_version : 0)
 		: 0;
 }
-EXPORT_SYMBOL_GPL(socinfo_get_raw_version);
 
 uint32_t socinfo_get_platform_type(void)
 {
@@ -787,7 +786,7 @@ uint32_t socinfo_get_platform_type(void)
 			socinfo->v0_3.hw_platform : 0)
 		: 0;
 }
-EXPORT_SYMBOL_GPL(socinfo_get_platform_type);
+
 
 uint32_t socinfo_get_platform_version(void)
 {
@@ -796,7 +795,6 @@ uint32_t socinfo_get_platform_version(void)
 			socinfo->v0_4.platform_version : 0)
 		: 0;
 }
-EXPORT_SYMBOL_GPL(socinfo_get_platform_version);
 
 /* This information is directly encoded by the machine id */
 /* Thus no external callers rely on this information at the moment */
@@ -815,7 +813,6 @@ uint32_t socinfo_get_platform_subtype(void)
 			socinfo->v0_6.hw_platform_subtype : 0)
 		: 0;
 }
-EXPORT_SYMBOL_GPL(socinfo_get_platform_subtype);
 
 static uint32_t socinfo_get_foundry_id(void)
 {

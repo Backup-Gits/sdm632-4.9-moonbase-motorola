@@ -155,8 +155,6 @@ static int aout_core_dump(struct coredump_params *cprm)
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
-	if (!dump_init(cprm))
-		goto end_coredump;
 	has_dumped = 1;
 
 	fill_dump(cprm->regs, &dump);
@@ -210,8 +208,6 @@ static int aout_core_dump(struct coredump_params *cprm)
 			goto end_coredump;
 	}
 end_coredump:
-	set_fs(KERNEL_DS);
-	dump_finish(cprm);
 	set_fs(fs);
 	return has_dumped;
 }
