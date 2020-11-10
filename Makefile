@@ -1,7 +1,7 @@
 VERSION = 4
 PATCHLEVEL = 9
-SUBLEVEL = 241
-EXTRAVERSION = -perf
+SUBLEVEL = 242
+EXTRAVERSION = -OceanMoon
 NAME = Roaring Lionus - MoonBase JavaShin-X Custom Kernel.
 
 KBUILD_CFLAGS   += -O3 $(call cc-disable-warning,maybe-uninitialized,)
