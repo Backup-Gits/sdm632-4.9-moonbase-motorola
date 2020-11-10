@@ -1,6 +1,6 @@
 VERSION = 4
 PATCHLEVEL = 9
-SUBLEVEL = 242
+SUBLEVEL = 243
 EXTRAVERSION = -OceanMoon
 NAME = Roaring Lionus - MoonBase JavaShin-X Custom Kernel.
 
