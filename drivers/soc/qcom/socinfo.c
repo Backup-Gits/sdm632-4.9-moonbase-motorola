@@ -66,6 +66,7 @@ enum {
 	HW_PLATFORM_RCM	= 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_ADP = 25,
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_INVALID
 };
@@ -87,6 +88,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_ADP] = "ADP",
 	[HW_PLATFORM_HDK] = "HDK",
 };
 
@@ -648,6 +650,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* SDM429W IDs*/
 	[416] = {MSM_CPU_SDM429W, "SDM429W"},
+	[437] = {MSM_CPU_SDA429W, "SDA429W"},
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -679,6 +682,7 @@ uint32_t socinfo_get_version(void)
 {
 	return (socinfo) ? socinfo->v0_1.version : 0;
 }
+EXPORT_SYMBOL(socinfo_get_version);
 
 char *socinfo_get_build_id(void)
 {
@@ -765,6 +769,7 @@ uint32_t socinfo_get_raw_id(void)
 			socinfo->v0_2.raw_id : 0)
 		: 0;
 }
+EXPORT_SYMBOL_GPL(socinfo_get_raw_id);
 
 uint32_t socinfo_get_raw_version(void)
 {
@@ -773,6 +778,7 @@ uint32_t socinfo_get_raw_version(void)
 			socinfo->v0_2.raw_version : 0)
 		: 0;
 }
+EXPORT_SYMBOL_GPL(socinfo_get_raw_version);
 
 uint32_t socinfo_get_platform_type(void)
 {
@@ -781,7 +787,7 @@ uint32_t socinfo_get_platform_type(void)
 			socinfo->v0_3.hw_platform : 0)
 		: 0;
 }
-
+EXPORT_SYMBOL_GPL(socinfo_get_platform_type);
 
 uint32_t socinfo_get_platform_version(void)
 {
@@ -790,6 +796,7 @@ uint32_t socinfo_get_platform_version(void)
 			socinfo->v0_4.platform_version : 0)
 		: 0;
 }
+EXPORT_SYMBOL_GPL(socinfo_get_platform_version);
 
 /* This information is directly encoded by the machine id */
 /* Thus no external callers rely on this information at the moment */
@@ -808,6 +815,7 @@ uint32_t socinfo_get_platform_subtype(void)
 			socinfo->v0_6.hw_platform_subtype : 0)
 		: 0;
 }
+EXPORT_SYMBOL_GPL(socinfo_get_platform_subtype);
 
 static uint32_t socinfo_get_foundry_id(void)
 {
@@ -1638,6 +1646,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sdm429w()) {
 		dummy_socinfo.id = 416;
 		strlcpy(dummy_socinfo.build_id, "sdm429w - ",
+				sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sda429w()) {
+		dummy_socinfo.id = 437;
+		strlcpy(dummy_socinfo.build_id, "sda429w - ",
 				sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_mdm9607()) {
 		dummy_socinfo.id = 290;
