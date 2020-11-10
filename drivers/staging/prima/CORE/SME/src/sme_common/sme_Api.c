@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -933,6 +933,34 @@ void sme_set_qpower(tpAniSirGlobal pMac, uint8_t enable)
 }
 
 /**
+ * smeProcessBlackListReq() - Update Black list APs
+ * @pMac - context handler
+ * @command: cmd param containing list of APs and count
+ *
+ * The function sends the list of black list to firmware received
+ * via driver vendor command
+ */
+static void smeProcessBlackListReq(tpAniSirGlobal pMac, tSmeCmd *pCommand)
+{
+    tSirMsgQ msgQ;
+    tSirRetStatus   retCode = eSIR_SUCCESS;
+
+    msgQ.type = WDA_BLACKLIST_REQ;
+    msgQ.reserved = 0;
+    msgQ.bodyptr = pCommand->u.RoamParams;
+    msgQ.bodyval = 0;
+
+    retCode = wdaPostCtrlMsg(pMac, &msgQ);
+    if (eSIR_SUCCESS != retCode) {
+        vos_mem_free(pCommand->u.RoamParams);
+        smsLog(pMac, LOGE,
+               FL("Posting WDA_BLACKLIST_REQ; to WDA failed, reason=%X"),
+               retCode);
+    } else {
+        smsLog(pMac, LOG1, FL("posted WDA_BLACKLIST_REQ command"));
+    }
+}
+/**
  * sme_set_vowifi_mode() - Set VOWIFI mode
  * @pMac - context handler
  * @enable - boolean value that determines the state
@@ -960,6 +988,37 @@ void sme_set_vowifi_mode(tpAniSirGlobal pMac, bool enable)
     else
     {
         smsLog(pMac, LOG1, FL("posted WDA_VOWIFI_MODE command"));
+    }
+}
+
+/*
+ * sme_set_olpc_mode() - Set OLPC (low power)
+ * @pMac - context handler
+ * @enable - boolean value that determines the state
+ *
+ * The function sends the low power mode to firmware received
+ * via driver command
+ */
+void sme_set_olpc_mode(tpAniSirGlobal pMac, bool enable)
+{
+    tSirMsgQ msgQ;
+    tSirRetStatus retCode = eSIR_SUCCESS;
+
+    vos_mem_zero(&msgQ, sizeof(tSirMsgQ));
+    msgQ.type = WDA_LOW_POWER_MODE;
+    msgQ.reserved = 0;
+    msgQ.bodyval = enable;
+
+    retCode = wdaPostCtrlMsg(pMac, &msgQ);
+    if(eSIR_SUCCESS != retCode)
+    {
+        smsLog(pMac, LOGE,
+           FL("Posting WDA_LOW_POWER_MODE to WDA failed, reason=%X"),
+           retCode);
+    }
+    else
+    {
+        smsLog(pMac, LOG1, FL("posted WDA_LOW_POWER_MODE command"));
     }
 }
 
@@ -1413,6 +1472,31 @@ sme_process_cmd:
                             }
                             VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
                                     "eSmeCommandNanReq processed");
+                            fContinue = eANI_BOOLEAN_TRUE;
+                            break;
+
+                        case eSmeCommandBlackList:
+                            csrLLUnlock(&pMac->sme.smeCmdActiveList);
+                            smeProcessBlackListReq(pMac, pCommand);
+                            if (csrLLRemoveEntry(&pMac->sme.smeCmdActiveList,
+                                &pCommand->Link, LL_ACCESS_LOCK)) {
+                                csrReleaseCommand(pMac, pCommand);
+                            }
+                            VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
+                                    "eSmeCommandBlackList processed");
+                            fContinue = eANI_BOOLEAN_TRUE;
+                            break;
+
+                        case eSmeCommandOlpcMode:
+                            csrLLUnlock(&pMac->sme.smeCmdActiveList);
+                            sme_set_olpc_mode(pMac,
+                                              pCommand->u.olpc_mode_enable);
+                            if (csrLLRemoveEntry(&pMac->sme.smeCmdActiveList,
+                                &pCommand->Link, LL_ACCESS_LOCK)) {
+                                csrReleaseCommand(pMac, pCommand);
+                            }
+                            VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
+                                      "sme_command_olpc_mode processed");
                             fContinue = eANI_BOOLEAN_TRUE;
                             break;
 
@@ -2880,21 +2964,6 @@ eHalStatus sme_ProcessMsg(tHalHandle hHal, vos_msg_t* pMsg)
                           "(PACKET_COALESCING_FILTER_MATCH_COUNT_RSP), nothing to process");
                 }
                 break;
-          // IKJB42MAIN-1244, Motorola, a19091 - BEGIN
-          case eWNI_SME_SET_V6_MC_FILTER:
-                if(pMsg->bodyptr)
-                {
-                   tSirInvokeV6Filter *invokeV6Filter=(tSirInvokeV6Filter*)(pMsg->bodyptr);
-                   invokeV6Filter->configureFilterFn(invokeV6Filter->pHddAdapter, invokeV6Filter->set, FALSE);
-                   kfree(pMsg->bodyptr);
-                   status = eHAL_STATUS_SUCCESS;
-                }
-                else
-                {
-                   smsLog(pMac, LOGE, "Empty callback for eWNI_SME_SET_V6_MC_FILTER ");
-                }
-                break;
-          // IKJB42MAIN-1244, Motorola, a19091 - END
 #endif // WLAN_FEATURE_PACKET_FILTERING
           case eWNI_SME_PRE_SWITCH_CHL_IND:
              {
@@ -3440,9 +3509,8 @@ eHalStatus sme_ScanRequest(tHalHandle hHal, tANI_U8 sessionId, tCsrScanRequest *
 
     do
     {
-        //Moto IKVPREL1L-7890: Dont block any scans while in BT call similar to titan/Victara
-        if(pMac->scan.fScanEnable) /*&&
-           (pMac->isCoexScoIndSet ? sco_isScanAllowed(pMac, pscanReq) : TRUE))*/
+        if(pMac->scan.fScanEnable &&
+           (pMac->isCoexScoIndSet ? sco_isScanAllowed(pMac, pscanReq) : TRUE))
         {
             status = sme_AcquireGlobalLock( &pMac->sme );
             if ( HAL_STATUS_SUCCESS( status ) )
@@ -9575,39 +9643,6 @@ eHalStatus sme_8023MulticastList (tHalHandle hHal, tANI_U8 sessionId, tpSirRcvFl
     return eHAL_STATUS_SUCCESS;
 }
 
-// IKJB42MAIN-1244, Motorola, a19091 - BEGIN
-eHalStatus sme_ReceiveSetMcFilter(tSirInvokeV6Filter *filterConfig)
-{
-    vos_msg_t               msg;
-    tSirInvokeV6Filter      *passFilterConfig = kmalloc(sizeof(tSirInvokeV6Filter), GFP_ATOMIC);
-
-    if(passFilterConfig == NULL) {
-        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR, "%s: Not able to "
-            "allocate memory for Receive Filter Set Filter MC request", __func__);
-        return eHAL_STATUS_FAILED_ALLOC;
-    }
-
-    vos_mem_copy(passFilterConfig, filterConfig, sizeof(tSirInvokeV6Filter));
-
-    msg.type = eWNI_SME_SET_V6_MC_FILTER;
-    msg.reserved = 0;
-    msg.bodyptr = passFilterConfig;
-
-    VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_INFO,
-            " MC set rcieved .. post for processing!");
-
-    if(VOS_STATUS_SUCCESS != vos_mq_post_message(VOS_MQ_ID_SME, &msg))
-    {
-        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR, "%s: Not able to post "
-            "WDA_RECEIVE_FILTER_SET_FILTER_MC_REQ message to WDA", __func__);
-        kfree(passFilterConfig);
-        return eHAL_STATUS_FAILURE;
-    }
-
-    return eHAL_STATUS_SUCCESS;
-}
-// IKJB42MAIN-1244, Motorola, a19091 - END
-
 eHalStatus sme_ReceiveFilterSetFilter(tHalHandle hHal, tpSirRcvPktFilterCfgType pRcvPktFilterCfg,
                                            tANI_U8 sessionId)
 {
@@ -15435,7 +15470,8 @@ eHalStatus sme_send_mgmt_tx(tHalHandle hal, uint8_t session_id,
 
 #ifdef WLAN_FEATURE_SAE
 eHalStatus sme_handle_sae_msg(tHalHandle hal, uint8_t session_id,
-                              uint8_t sae_status)
+                              uint8_t sae_status,
+                              tSirMacAddr peer_mac_addr)
 {
     eHalStatus hal_status = eHAL_STATUS_SUCCESS;
     tpAniSirGlobal mac = PMAC_STRUCT(hal);
@@ -15455,11 +15491,17 @@ eHalStatus sme_handle_sae_msg(tHalHandle hal, uint8_t session_id,
             sae_msg->length = sizeof(*sae_msg);
             sae_msg->session_id = session_id;
             sae_msg->sae_status = sae_status;
+            vos_mem_copy(sae_msg->peer_mac_addr,
+                         peer_mac_addr,
+                         VOS_MAC_ADDR_SIZE);
             vos_message.bodyptr = sae_msg;
             vos_message.type =  eWNI_SME_SEND_SAE_MSG;
             VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_DEBUG,
-                      "SAE: sae_status %d session_id %d", sae_msg->sae_status,
-                      sae_msg->session_id);
+                    "SAE: sae_status %d session_id %d Peer: "
+                    MAC_ADDRESS_STR,
+                    sae_msg->sae_status,
+                    sae_msg->session_id,
+                    MAC_ADDR_ARRAY(sae_msg->peer_mac_addr));
 
             vos_status = vos_mq_post_message(VOS_MQ_ID_PE, &vos_message);
             if (!VOS_IS_STATUS_SUCCESS(vos_status)) {
@@ -15473,3 +15515,75 @@ eHalStatus sme_handle_sae_msg(tHalHandle hal, uint8_t session_id,
 return hal_status;
 }
 #endif
+
+eHalStatus sme_UpdateBlacklist(tHalHandle hHal, uint8_t session_id,
+                               struct roam_ext_params *roam_params) {
+    tRoamParams *pRoamParams = NULL;
+    size_t data_len;
+    tSmeCmd *pCommand;
+    tpAniSirGlobal pMac = PMAC_STRUCT(hHal);
+
+    pCommand = csrGetCommandBuffer(pMac);
+    if (NULL == pCommand) {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                FL("Failed to get command buffer for roam params"));
+        return eHAL_STATUS_RESOURCES;
+    }
+
+    data_len = sizeof(tRoamParams);
+    pRoamParams = vos_mem_malloc(data_len);
+
+    if (pRoamParams == NULL) {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                FL("Memory allocation failure, size : %zu"), data_len);
+        csrReleaseCommand(pMac, pCommand);
+         return eHAL_STATUS_RESOURCES;
+    }
+
+    smsLog(pMac, LOG1, "Posting Roam command to csr queue");
+    vos_mem_zero(pRoamParams, data_len);
+    vos_mem_copy(pRoamParams, roam_params, data_len);
+
+    pCommand->command = eSmeCommandBlackList;
+    pCommand->sessionId = session_id;
+    pCommand->u.RoamParams = pRoamParams;
+
+    if (!HAL_STATUS_SUCCESS(csrQueueSmeCommand(pMac, pCommand, TRUE))) {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                 FL("failed to post eSmeCommandBlackList command"));
+        csrReleaseCommand(pMac, pCommand);
+        vos_mem_free(pRoamParams);
+        return eHAL_STATUS_FAILURE;
+    }
+
+    return eHAL_STATUS_SUCCESS;
+}
+
+eHalStatus sme_update_olpc_mode(tHalHandle hHal, bool enable)
+{
+    tSmeCmd *pCommand;
+    tpAniSirGlobal pMac = PMAC_STRUCT(hHal);
+
+    pCommand = csrGetCommandBuffer(pMac);
+    if (pCommand == NULL) {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                  FL("Failed to get command buffer for roam params"));
+        return eHAL_STATUS_RESOURCES;
+    }
+
+    smsLog(pMac, LOG1, "Posting OLPC command to csr queue");
+
+    pCommand->command = eSmeCommandOlpcMode;
+    pCommand->u.olpc_mode_enable = enable;
+
+    if (!HAL_STATUS_SUCCESS(csrQueueSmeCommand(pMac, pCommand, TRUE))) {
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                 FL("failed to post OLPC sme command"));
+        csrReleaseCommand(pMac, pCommand);
+        return eHAL_STATUS_FAILURE;
+    }
+
+    return eHAL_STATUS_SUCCESS;
+}
+
+
