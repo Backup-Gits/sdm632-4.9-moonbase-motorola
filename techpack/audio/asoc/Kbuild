@@ -6,6 +6,7 @@ else
 	KERNEL_BUILD := 0
 endif
 
+
 ifeq ($(KERNEL_BUILD), 1)
 	# These are configurable via Kconfig for kernel-based builds
 	# Need to explicitly configure for Android-based builds
@@ -40,9 +41,16 @@ ifeq ($(KERNEL_BUILD), 0)
 		INCS    +=  -include $(AUDIO_ROOT)/config/sdxpoorwillsautoconf.h
 	endif
 	ifeq ($(CONFIG_ARCH_MSM8909), y)
-		include $(AUDIO_ROOT)/config/msm8909auto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/msm8909autoconf.h
+		ifeq ($(CONFIG_MSM_BGCOM), y)
+			include $(AUDIO_ROOT)/config/msm8909auto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/msm8909autoconf.h
+		endif
+		ifeq ($(CONFIG_MSM_8905), m)
+			include $(AUDIO_ROOT)/config/msm8905auto.conf
+			export
+			INCS    +=  -include $(AUDIO_ROOT)/config/msm8905autoconf.h
+		endif
 	endif
 	ifeq ($(CONFIG_ARCH_MSM8917), y)
 		include $(AUDIO_ROOT)/config/sdm450auto.conf
@@ -75,14 +83,8 @@ UAPI_INC :=	-I$(AUDIO_ROOT)/include/$(UAPI_DIR)
 COMMON_DIR :=	include
 COMMON_INC :=	-I$(AUDIO_ROOT)/$(COMMON_DIR)
 
-########### MADERA ############
-MADERA_INC :=   -I$(TOP)/vendor/cirrus/audio/dlkm \
-		-I$(TOP)/vendor/cirrus/audio/dlkm/include
-
-########### MOT ############
-MOT_INC := -I$(TOP)/motorola/kernel/modules/include
-
 ############ ASoC Drivers ############
+
 
 # for SDM6xx sound card driver
 ifdef CONFIG_SND_SOC_SDM670
@@ -122,6 +124,11 @@ endif
 
 ifdef CONFIG_SND_SOC_MSM8909
 	MACHINE_INT_OBJS += msm8952.o
+endif
+
+# For MSM8909 only add voice svc driver
+ifdef CONFIG_SND_SOC_MSM8909
+	PLATFORM_OBJS += voice_svc.o
 endif
 
 # for SDM450 external codec sound card driver
@@ -181,9 +188,7 @@ endif
 LINUX_INC +=	-Iinclude/linux
 
 INCS +=		$(COMMON_INC) \
-		$(UAPI_INC) \
-		$(MADERA_INC) \
-		$(MOT_INC)
+		$(UAPI_INC)
 
 EXTRA_CFLAGS += $(INCS)
 
@@ -196,30 +201,6 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-Wall\
 		-Werror\
 		-D__linux__
-
-ifneq (,$(filter river% ali_shm2018%, $(TARGET_PRODUCT)))
-CDEFINES += -DCONFIG_SND_SOC_MADERA -DCONFIG_MFD_CS47L35
-endif
-
-ifneq (,$(filter ocean% surf%, $(TARGET_PRODUCT)))
-CDEFINES += -DCONFIG_SND_SOC_NXP_TFA9874
-endif
-
-ifneq (,$(findstring river, $(strip $(TARGET_PRODUCT))))
-CDEFINES += -DCONFIG_SND_SOC_CS35L41 -DCONFIG_CIRRUS_PLAYBACK
-endif
-
-ifneq (,$(findstring ali_shm2018, $(strip $(TARGET_PRODUCT))))
-CDEFINES += -DCONFIG_SND_SOC_CS35L35
-endif
-
-ifneq (,$(filter channel%, $(TARGET_PRODUCT)))
-CDEFINES += -DCONFIG_SND_SOC_TAS2560
-endif
-
-ifneq (,$(filter ginna%, $(TARGET_PRODUCT)))
-CDEFINES += -DCONFIG_SND_SOC_AWINIC_AW882XX
-endif
 
 KBUILD_CPPFLAGS += $(CDEFINES)
 
