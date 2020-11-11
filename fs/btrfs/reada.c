@@ -306,6 +306,8 @@ static struct reada_zone *reada_find_zone(struct btrfs_fs_info *fs_info,
 		else
 			zone = NULL;
 	}
+	if (!have_zone)
+		radix_tree_delete(&fs_info->reada_tree, index);
 	spin_unlock(&fs_info->reada_lock);
 
 	return zone;
