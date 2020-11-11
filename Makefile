@@ -4,24 +4,24 @@ SUBLEVEL = 243
 EXTRAVERSION = -OceanMoon
 NAME = Roaring Lionus - MoonBase JavaShin-X Custom Kernel.
 
-KBUILD_CFLAGS   += -O3 $(call cc-disable-warning,maybe-uninitialized,)
-KBUILD_CFLAGS += $(call cc-option,-mcpu=kyro,$(call cc-option,-mcpu=cortex-a73.cortex-a53 -march=armv8-a+fp+simd+crc+crypto,-march=armv8-a+fp+simd+crc+crypto))
+#KBUILD_CFLAGS   += -O3 $(call cc-disable-warning,maybe-uninitialized,)
+#KBUILD_CFLAGS += $(call cc-option,-mcpu=kyro,$(call cc-option,-mcpu=cortex-a73.cortex-a53 -march=armv8-a+fp+simd+crc+crypto,-march=armv8-a+fp+simd+crc+crypto))
 
 # Or armv8-a Compile fine.
-ifeq ($(cc-name),clang)
-KBUILD_CFLAGS   += -march=armv8-a+fp+simd+crc+crypto -mcpu=kryo -mtune=kryo
-endif
+#ifeq ($(cc-name),clang)
+#KBUILD_CFLAGS   += -march=armv8-a+fp+simd+crc+crypto -mcpu=kryo -mtune=kryo
+#endif
 
-ifdef CONFIG_POLLY_CLANG
-KBUILD_CFLAGS	+= -mllvm -polly \
-		   -mllvm -polly-run-dce \
-		   -mllvm -polly-run-inliner \
-		   -mllvm -polly-opt-fusion=max \
-		   -mllvm -polly-ast-use-context \
-		   -mllvm -polly-detect-keep-going \
-		   -mllvm -polly-vectorizer=stripmine \
-		   -mllvm -polly-invariant-load-hoisting
-endif
+#ifdef CONFIG_POLLY_CLANG
+#KBUILD_CFLAGS	+= -mllvm -polly \
+#		   -mllvm -polly-run-dce \
+#		   -mllvm -polly-run-inliner \
+#		   -mllvm -polly-opt-fusion=max \
+#		   -mllvm -polly-ast-use-context \
+#		   -mllvm -polly-detect-keep-going \
+#		   -mllvm -polly-vectorizer=stripmine \
+#		   -mllvm -polly-invariant-load-hoisting
+#endif
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -409,11 +409,11 @@ LINUXINCLUDE    := \
 LINUXINCLUDE	+= $(filter-out $(LINUXINCLUDE),$(USERINCLUDE))
 
 KBUILD_AFLAGS   := -D__ASSEMBLY__
-KBUILD_CFLAGS   := -O3 -Wno-error -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+KBUILD_CFLAGS   := -Wno-error -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar \
 		   -Werror-implicit-function-declaration \
-		   -Wno-format-security -fno-stack-protector \
-		   -std=gnu89 -pipe
+		   -Wno-format-security \
+		   -std=gnu89
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -846,13 +846,13 @@ KBUILD_CFLAGS += $(call cc-disable-warning, tautological-compare)
 # See modpost pattern 2
 KBUILD_CFLAGS += $(call cc-option, -mno-global-merge,)
 KBUILD_CFLAGS += $(call cc-option, -fcatch-undefined-behavior)
-KBUILD_CFLAGS += $(call cc-option, -mllvm -polly) \
-		 $(call cc-option, -mllvm -polly-run-dce) \
-		 $(call cc-option, -mllvm -polly-run-inliner) \
-		 $(call cc-option, -mllvm -polly-opt-fusion=max) \
-		 $(call cc-option, -mllvm -polly-ast-use-context) \
-		 $(call cc-option, -mllvm -polly-detect-keep-going) \
-		 $(call cc-option, -mllvm -polly-vectorizer=stripmine)
+#KBUILD_CFLAGS += $(call cc-option, -mllvm -polly) \
+#		 $(call cc-option, -mllvm -polly-run-dce) \
+#		 $(call cc-option, -mllvm -polly-run-inliner) \
+#		 $(call cc-option, -mllvm -polly-opt-fusion=max) \
+#		 $(call cc-option, -mllvm -polly-ast-use-context) \
+#		 $(call cc-option, -mllvm -polly-detect-keep-going) \
+#		 $(call cc-option, -mllvm -polly-vectorizer=stripmine)
 else
 
 # These warnings generated too much noise in a regular build.

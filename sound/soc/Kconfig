@@ -74,7 +74,7 @@ source "sound/soc/xtensa/Kconfig"
 source "sound/soc/zte/Kconfig"
 
 # Supported codecs
-source "sound/soc/codecs/Kconfig"
+#source "sound/soc/codecs/Kconfig"
 
 # generic frame-work
 source "sound/soc/generic/Kconfig"
